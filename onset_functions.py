@@ -1,7 +1,8 @@
 
 import os
 import datetime
-from turtle import speed
+from turtle import position
+# from turtle import speed
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.colors as cl
@@ -9,6 +10,7 @@ import numpy as np
 import pandas as pd
 import astropy.units as u
 import astropy.constants as const
+from sunpy.coordinates import get_horizons_coord
 from matplotlib.dates import DateFormatter
 from matplotlib.ticker import ScalarFormatter
 from matplotlib.offsetbox import AnchoredText
@@ -21,6 +23,7 @@ from stereo_loader import calc_av_en_flux_SEPT, stereo_load
 from wind_3dp_loader import wind3dp_load
 
 from IPython.core.display import display
+
 
 class Event:
 
@@ -50,6 +53,7 @@ class Event:
         self.data_level = data_level.lower()
         self.data_path = data_path + os.sep
         self.threshold = threshold
+        self.viewing = None
 
         # placeholding class attributes for onset_analysis()
         self.flux_series = None
@@ -96,6 +100,9 @@ class Event:
                        "bg_mean": self.bg_mean
                        }
 
+    def update_viewing(self, viewing):
+        self.viewing = viewing
+
     def load_data(self, spacecraft, sensor, viewing, data_level,
                   autodownload=True, threshold=None):
 
@@ -108,6 +115,7 @@ class Event:
                                           path=self.data_path,
                                           autodownload=autodownload)
 
+            self.update_viewing(viewing)
             return df_i, df_e, energs
 
         if(self.spacecraft[:2].lower() == 'st'):
@@ -123,6 +131,8 @@ class Event:
                                                            resample=None,
                                                            path=self.data_path)
                     df_e, channels_dict_df_e = [], []
+
+                    self.update_viewing(viewing)
                     return df_i, df_e, channels_dict_df_i, channels_dict_df_e
 
                 if self.species == "e":
@@ -137,6 +147,8 @@ class Event:
                                                            path=self.data_path)
 
                     df_i, channels_dict_df_i = [], []
+
+                    self.update_viewing(viewing)
                     return df_i, df_e, channels_dict_df_i, channels_dict_df_e
 
             if(self.sensor == 'het'):
@@ -147,6 +159,8 @@ class Event:
                                        resample=None,
                                        pos_timestamp='center',
                                        path=self.data_path)
+
+                self.update_viewing(viewing)
                 return df, meta
 
         if(self.spacecraft.lower() == 'soho'):
@@ -157,6 +171,19 @@ class Event:
                                      path=self.data_path,
                                      resample=None,
                                      pos_timestamp='center')
+
+                self.update_viewing(viewing)
+                return df, meta
+
+            if(self.sensor == 'ephin'):
+                df, meta = soho_load(dataset="SOHO_COSTEP-EPHIN_L2-1MIN",
+                                     startdate=self.start_date,
+                                     enddate=self.end_date,
+                                     path=self.data_path,
+                                     resample=None,
+                                     pos_timestamp='center')
+
+                self.update_viewing(viewing)
                 return df, meta
 
         if(self.spacecraft.lower() == 'wind'):
@@ -177,6 +204,7 @@ class Event:
                                             path=self.data_path,
                                             threshold=self.threshold)
 
+                self.update_viewing(viewing)
                 return df_i, df_e, meta_i, meta_e
 
         if(self.spacecraft.lower() == 'psp'):
@@ -186,6 +214,8 @@ class Event:
                                           enddate=self.end_date,
                                           path=self.data_path,
                                           resample=None)
+
+                self.update_viewing(viewing)
                 return df, meta
             if(self.sensor.lower() == 'isois-epilo'):
                 df, meta = psp_isois_load(dataset='PSP_ISOIS-EPILO_L2-PE',
@@ -195,6 +225,8 @@ class Event:
                                           resample=None,
                                           epilo_channel='F',
                                           epilo_threshold=self.threshold)
+
+                self.update_viewing(viewing)
                 return df, meta
 
     def load_all_viewing(self):
@@ -265,6 +297,14 @@ class Event:
                 # self.current_df_e = self.df.filter(like='Electron')
                 self.current_energies = self.meta
 
+            if(self.sensor.lower() == 'ephin'):
+                self.df, self.meta =\
+                    self.load_data(self.spacecraft, self.sensor, 'None',
+                                   self.data_level)
+                # self.current_df_i = self.df.filter(like='PH_')
+                self.current_df_e = self.df.filter(like='E')
+                self.current_energies = self.meta
+
         if(self.spacecraft.lower() == 'wind'):
             if(self.sensor.lower() == '3dp'):
                 self.df_i, self.df_e, self.meta_i, self.meta_e = \
@@ -292,6 +332,8 @@ class Event:
                 # self.current_i_energies = self.meta
 
     def choose_data(self, viewing):
+
+        self.update_viewing(viewing)
 
         if(self.spacecraft == 'solo'):
             if(viewing == 'sun'):
@@ -709,7 +751,7 @@ class Event:
             avg_start = date[0] + datetime.timedelta(hours=windowstart)
             # ending time is starting time + a given timedelta in hours
             avg_end = avg_start + datetime.timedelta(hours=windowlen)
-        
+
         else:
             avg_start, avg_end = windowrange[0], windowrange[1]
 
@@ -774,9 +816,9 @@ class Event:
         # Flux peak line (first peak only, if there's multiple)
         try:
             ax.axvline(df_flux_peak.index[0], linewidth=1.5,
-                    color=color_dict['flux_peak'], linestyle='-',
-                    label="Peak time")
-        
+                       color=color_dict['flux_peak'], linestyle='-',
+                       label="Peak time")
+
         except IndexError:
             exceptionmsg = "IndexError! Maybe you didn't adjust background_range or plot_range correctly?"
             raise Exception(exceptionmsg)
@@ -897,7 +939,7 @@ class Event:
                 channels=[0, 1], yscale='log', cusum_window=30, xlim=None, x_sigma=2):
 
         # This check was initially transforming the 'channels' integer to a tuple of len==1, but that
-        # raised a ValueError with solo/ept. However, a list of len==1 is somehow okay. 
+        # raised a ValueError with solo/ept. However, a list of len==1 is somehow okay.
         if isinstance(channels, int):
             channels = [channels]
 
@@ -911,6 +953,8 @@ class Event:
         elif (self.spacecraft[:2].lower() == 'st' and self.sensor == 'het'):
             self.viewing_used = ''
         elif (self.spacecraft.lower() == 'soho' and self.sensor == 'erne'):
+            self.viewing_used = ''
+        elif (self.spacecraft.lower() == 'soho' and self.sensor == 'ephin'):
             self.viewing_used = ''
 
         self.averaging_used = resample_period
@@ -999,6 +1043,17 @@ class Event:
                                              species='p',
                                              sensor='HET')
 
+            if(self.sensor == 'ephin'):
+                # convert single-element "channels" list to integer
+                if type(channels) == list:
+                    if len(channels) == 1:
+                        channels = channels[0]
+                    else:
+                        print("No multi-channel support for SOHO/EPHIN included yet! Select only one single channel.")
+                if(self.species == 'e'):
+                    df_flux = self.current_df_e[f'E{channels}']
+                    en_channel_string = self.current_energies[f'E{channels}']
+
         if(self.spacecraft == 'wind'):
             if(self.sensor == '3dp'):
                 # convert single-element "channels" list to integer
@@ -1067,7 +1122,7 @@ class Event:
                                 en_channel_string, yscale=yscale, cusum_window=cusum_window, xlim=xlim)
 
         # At least in the case of solo/ept the peak_flux is a pandas Dataframe, but it should be a Series
-        if isinstance(peak_flux,pd.core.frame.DataFrame):
+        if isinstance(peak_flux, pd.core.frame.DataFrame):
             peak_flux = pd.Series(data=peak_flux.values[0])
 
         # update class attributes before returning variables:
@@ -1083,7 +1138,7 @@ class Event:
         Parameters:
         -----------
         view : str or None
-                The viewing direction of the sensor 
+                The viewing direction of the sensor
         cmap : str, default='magma'
                 The colormap for the dynamic spectrum plot
         xlim : 2-tuple of datetime strings (str, str)
@@ -1126,11 +1181,15 @@ class Event:
                     s_identifier = "ions"
                 else:
                     particle_data = self.current_df_i[[ch for ch in self.current_df_i.columns if "Flux" in ch]]
-                    s_identifier = "protons"
+                s_identifier = "protons"
 
         if self.spacecraft == "soho":
-            particle_data = self.current_df_i
-            s_identifier = "protons"
+            if instrument.lower() == "erne":
+                particle_data = self.current_df_i
+                s_identifier = "protons"
+            if instrument.lower() == "ephin":
+                particle_data = self.current_df_e
+                s_identifier = "electrons"
 
         # These instruments will have keVs on their y-axis
         LOW_ENERGY_SENSORS = ("sept", "ept")
@@ -1161,10 +1220,10 @@ class Event:
         time = df.index
 
         # The low and high ends of each energy channel
-        e_lows, e_highs = self.get_channel_energy_values() #this function return energy in eVs
+        e_lows, e_highs = self.get_channel_energy_values()  # this function return energy in eVs
 
         # The mean energy of each channel in eVs
-        mean_energies = np.sqrt(np.multiply(e_lows,e_highs))
+        mean_energies = np.sqrt(np.multiply(e_lows, e_highs))
 
         # Energy boundaries of plotted bins in keVs are the y-axis:
         y_arr = np.append(e_lows,e_highs[-1]) * y_multiplier
@@ -1199,7 +1258,7 @@ class Event:
         normscale = cl.LogNorm()
 
         # Init the figure and axes
-        figsize=[27,12]
+        figsize=[27,14]
         fig, ax = plt.subplots(figsize=figsize)
 
         maskedgrid = np.where(grid==0, 0, 1)
@@ -1270,6 +1329,23 @@ class Event:
         instrument = self.sensor
         species =  self.species
 
+
+        # This here is an extremely stupid thing, but we must convert spacecraft input name back
+        # to its original version so that sunpy.get_horizon_coords() understands it
+        if spacecraft == "solo":
+            spacecraft_input_name = "Solar Orbiter"
+        elif spacecraft == "sta":
+            spacecraft_input_name = "STEREO-A"
+        elif spacecraft == "stb":
+            spacecraft_input_name = "STEREO-B"
+        else:
+            spacecraft_input_name = spacecraft.upper()
+
+        # get (lon, lat, radius) in (deg, deg, AU) in Stonyhurst coordinates:
+        # e.g. 'Solar Orbiter', 'STEREO-A', 'STEREO-B', 'SOHO', 'PSP'
+        position = get_horizons_coord(spacecraft_input_name, self.start_date)
+        radial_distance_value = np.round(position.radius.value,2)
+
         METERS_PER_AU = 1 * u.AU.to(u.m)
 
         self.choose_data(view)
@@ -1303,9 +1379,16 @@ class Event:
             sc_identifier = "STEREO-A" if spacecraft[-1] == "a" else "STEREO-B"
 
         if self.spacecraft == "soho":
-            particle_data = self.current_df_i
-            s_identifier = "protons"
-            sc_identifier = "SOHO"
+            # ERNE-HED (only protons)
+            if instrument.lower() == "erne":
+                particle_data = self.current_df_i
+                s_identifier = "protons"
+            # EPHIN (only electrons)
+            else:
+                particle_data = self.current_df_e
+                s_identifier = "electrons"
+            sc_identifier = spacecraft.upper()
+
 
         # make a copy to make sure original data is not altered
         dataframe = particle_data.copy()
@@ -1318,23 +1401,37 @@ class Event:
         stepsize = 0.05
         min_slider_val, max_slider_val = 0.0, 1.55
 
-        # only the selected channels will be plotted
+        # Only the selected channels will be plotted
         if selection is not None:
-            selected_channels = dataframe.columns[selection[0]:selection[1]]
+
+            # len==3 means that we only choose every selection[2]:th channel 
+            if len(selection) == 3:
+                channel_indices = [i for i in range(selection[0],selection[1],selection[2])]
+                selected_channels = [channel for channel in dataframe.columns[channel_indices]]
+            else:
+                channel_indices = [i for i in range(selection[0],selection[1])]
+                selected_channels = dataframe.columns[selection[0]:selection[1]]
         else:
             selected_channels = dataframe.columns
+            channel_indices = [i for i in range(len(selected_channels))]
 
         # Change 0-values to nan purely for plotting purposes, since we're not doing any
         # calculations with them
         dataframe[dataframe[selected_channels] == 0] = np.nan
 
-        # channel energy strs:
+        # Get the channel numbers (not the indices!)
+        channel_nums = [int(name.split('_')[-1]) for name in selected_channels]
+
+        # Channel energy values as strings:
         channel_energy_strs = self.get_channel_energy_values("str")
         if selection is not None:
-            channel_energy_strs = channel_energy_strs[slice(selection[0], selection[1])]
+            if len(selection) == 3:
+                channel_energy_strs = channel_energy_strs[slice(selection[0], selection[1], selection[2])]
+            else:
+                channel_energy_strs = channel_energy_strs[slice(selection[0], selection[1])]
 
         # creation of the figure
-        fig, ax = plt.subplots(figsize=(9,6))
+        fig, ax = plt.subplots(figsize=(9, 6))
 
         # settings of title
         ax.set_title(f"{sc_identifier} {instrument.upper()}, {s_identifier}")
@@ -1379,14 +1476,14 @@ class Event:
             series_norm.append(series_normalized)
 
             # save the plotted lines, NOTICE that they come inside a list of len==1
-            p1 = ax.step(series.index, series.values, c=f"C{i}", visible=True, label=channel_energy_strs[i])
+            p1 = ax.step(series.index, series.values, c=f"C{i}", visible=True, label = f"{channel_nums[i]}: {channel_energy_strs[i]}")
             p2 = ax.step(series_normalized.index, series_normalized.values, c=f"C{i}", visible=False) # normalized lines are initially hidden
 
             # store plotted line objects for later referencing
             plotted_natural.append(p1[0])
             plotted_norm.append(p2[0])
 
-        plt.legend(loc='upper center', bbox_to_anchor=(1.0, 1.1), fancybox=True, shadow=False, ncol=1, fontsize = 9)
+        plt.legend(loc='upper center', bbox_to_anchor=(1.0, 1.1), fancybox=True, shadow=False, ncol=1, fontsize=9)
 
         # widget objects, slider and button
         style = {'description_width': 'initial'}
@@ -1405,8 +1502,8 @@ class Event:
                                 )
 
         # A box for the path length
-        path_label = f"L = {slider.value} AU"
-        text = plt.text(0.85,0.03, path_label, transform=ax.transAxes, bbox=dict(boxstyle="square",
+        path_label = f"R={radial_distance_value:.2f} AU\nL = {slider.value} AU"
+        text = plt.text(0.02,0.03, path_label, transform=ax.transAxes, bbox=dict(boxstyle="square",
                                                                  ec=(0., 0., 0.),
                                                                  fc=(1., 1.0, 1.0),
                                                                  ))
@@ -1435,7 +1532,7 @@ class Event:
                 line.set_xdata(line.get_xdata() - pd.Timedelta(seconds=timedelta_sec))
 
             # Update the path label artist
-            text.set_text(f"L = {slider.value} AU")
+            text.set_text(f"R={radial_distance_value:.2f} AU\nL = {slider.value} AU")
 
             # Effectively this refreshes the figure
             fig.canvas.draw_idle()
@@ -1450,7 +1547,7 @@ class Event:
 
             for line in plotted_norm:
                 line.set_visible(not line.get_visible())
-            
+
             # Reset the y-axis label
             if plotted_natural[0].get_visible():
                 ax.set_ylabel(r"Intensity" + "\n" + r"[1/(cm$^{2}$ sr s MeV)$^{-1}$]")
@@ -1472,14 +1569,14 @@ class Event:
     def get_channel_energy_values(self, returns: str = "num") -> list:
         """
         A class method to return the energies of each energy channel in either str or numerical form.
-        
+
         Parameters:
         -----------
         returns: str, either 'str' or 'num'
 
-        Returns: 
+        Returns:
         ---------
-        energy_ranges : list of energy ranges as strings 
+        energy_ranges : list of energy ranges as strings
         or
         lower_bounds : list of lower bounds of each energy channel in eVs
         higher_bounds : list of higher bounds of each energy channel in eVs
@@ -1498,7 +1595,7 @@ class Event:
                     energy_ranges = energy_dict["Ion_Bins_Text"]
                 except KeyError:
                     energy_ranges = energy_dict["H_Bins_Text"]
-            
+
             # Each element in the list is also a list with len==1, so fix that
             energy_ranges = [element[0] for element in energy_ranges]
 
@@ -1516,7 +1613,7 @@ class Event:
             # STEREO/HET energies all in the same dictionary
             else:
                 energy_dict = self.current_energies
-                
+
                 if self.species == 'e':
                     energy_ranges = energy_dict["Electron_Bins_Text"]
                 else:
@@ -1526,8 +1623,10 @@ class Event:
                 energy_ranges = [element[0] for element in energy_ranges]
 
         if self.spacecraft == "soho":
-
-            energy_ranges = self.current_energies["channels_dict_df_p"]["ch_strings"].values
+            if self.sensor.lower() == "erne":
+                energy_ranges = self.current_energies["channels_dict_df_p"]["ch_strings"].values
+            if self.sensor.lower() == "ephin":
+                energy_ranges = [val for val in self.current_energies.values()]
 
         # Check what to return before running calculations
         if returns == "str":
@@ -1536,33 +1635,42 @@ class Event:
         lower_bounds, higher_bounds = [], []
         for energy_str in energy_ranges:
 
-            lower_bound, temp = energy_str.split('-')
+            # Sometimes there is no hyphen, but then it's not a range of energies
+            try:
+                lower_bound, temp = energy_str.split('-')
+            except ValueError:
+                continue
+
             try:
                 higher_bound, energy_unit = temp.split(' ')
 
-            # It could be that THE STRINGS ARE NOT IN A STANDARD FORMAT, so check if
+            # It could be that the strings are not in a standard format, so check if
             # there is an empty space before the second energy value
             except ValueError:
-                
+
                 try:
                     _, higher_bound, energy_unit = temp.split(' ')
 
-                # It could even be that FOR SOME GODFORSAKEN REASON there are empty spaces
-                # between the numbers themselves
+                # It could even be that for some godforsaken reason there are empty spaces
+                # between the numbers themselves, so take care of that too
                 except ValueError:
                     higher_bound, energy_unit = temp.split(' ')[1], temp.split(' ')[2]
 
             lower_bounds.append(float(lower_bound))
             higher_bounds.append(float(higher_bound))
-        
+
         # Transform lists to numpy arrays for performance and convenience
         lower_bounds, higher_bounds = np.asarray(lower_bounds), np.asarray(higher_bounds)
 
         # Finally before returning the lists, make sure that the unit of energy is eV
         if energy_unit == "keV":
             lower_bounds, higher_bounds = lower_bounds * 1e3, higher_bounds * 1e3
-        
-        if energy_unit == "MeV":
+
+        elif energy_unit == "MeV":
+            lower_bounds, higher_bounds = lower_bounds * 1e6, higher_bounds * 1e6
+
+        # This only happens with ephin, which has MeV as the unit of energy
+        else:
             lower_bounds, higher_bounds = lower_bounds * 1e6, higher_bounds * 1e6
 
         return lower_bounds, higher_bounds
@@ -1581,21 +1689,30 @@ class Event:
         C_SQUARE = const.c.value*const.c.value
 
         # E=mc^2, a fundamental property of any object with mass
-        mass_energy = m_species*C_SQUARE # e.g. 511 keV/c for electrons
+        mass_energy = m_species*C_SQUARE  # e.g. 511 keV/c for electrons
 
         # Get the energies of each energy channel, to calculate the mean energy of particles and ultimately
         # To get the dimensionless speeds of the particles (beta)
-        e_lows, e_highs = self.get_channel_energy_values() #get_energy_channels() returns energy in eVs
+        e_lows, e_highs = self.get_channel_energy_values()  # get_energy_channels() returns energy in eVs
 
-        mean_energies = np.sqrt(np.multiply(e_lows,e_highs))
+        mean_energies = np.sqrt(np.multiply(e_lows, e_highs))
 
         # Transform kinetic energy from electron volts to joules
         e_Joule = [((En*u.eV).to(u.J)).value for En in mean_energies]
 
         # Beta, the unitless speed (v/c)
-        beta = [np.sqrt(1-(( e_J/mass_energy + 1)**(-2))) for e_J in e_Joule]
+        beta = [np.sqrt(1-((e_J/mass_energy + 1)**(-2))) for e_J in e_Joule]
 
         return np.array(beta)*const.c.value
+
+    
+    def print_energies(self):
+    
+        energy_strs = self.get_channel_energy_values("str")
+        
+        print(f"{self.spacecraft}, {self.sensor}:\n")
+        for line in energy_strs:
+            print(line)
 
 
 def flux2series(flux, dates, cadence=None):
@@ -1618,7 +1735,7 @@ def flux2series(flux, dates, cadence=None):
 
     # set up the series object
     flux_series = pd.Series(flux, index=dates)
-    
+
     # if no cadence given, then just return the series with the original
     # time resolution
     if cadence is not None:
