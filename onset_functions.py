@@ -1,6 +1,7 @@
 
 import os
 import datetime
+import warnings
 # from turtle import speed
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -512,9 +513,14 @@ class Event:
 
         if type(en_channel) == list:
 
-            en_channel_string = en_str[en_channel[0]][0].split()[0] + ' - '\
-                + en_str[en_channel[-1]][0].split()[2] + ' ' +\
-                en_str[en_channel[-1]][0].split()[3]
+            # An IndexError here is caused by invalid channel choice
+            try:
+                en_channel_string = en_str[en_channel[0]][0].split()[0] + ' - '\
+                    + en_str[en_channel[-1]][0].split()[2] + ' ' +\
+                    en_str[en_channel[-1]][0].split()[3]
+
+            except IndexError:
+                raise Exception(f"{en_channel} is an invalid channel or a combination of channels!")
 
             if len(en_channel) > 2:
 
@@ -613,9 +619,14 @@ class Event:
 
         if type(en_channel) == list:
 
-            en_channel_string = en_str[en_channel[0]][0].split()[0] + ' - '\
-                + en_str[en_channel[-1]][0].split()[2] + ' '\
-                + en_str[en_channel[-1]][0].split()[3]
+            # An IndexError here is caused by invalid channel choice
+            try:
+                en_channel_string = en_str[en_channel[0]][0].split()[0] + ' - '\
+                    + en_str[en_channel[-1]][0].split()[2] + ' '\
+                    + en_str[en_channel[-1]][0].split()[3]
+
+            except IndexError:
+                raise Exception(f"{en_channel} is an invalid channel or a combination of channels!")
 
             if len(en_channel) > 2:
 
@@ -992,6 +1003,12 @@ class Event:
         if isinstance(channels, int):
             channels = [channels]
 
+        # Check if background is separated from plot range by over a day, issue a warning if so, but don't 
+        if (background_range[0] < xlim[0] - datetime.timedelta(days=1) and background_range[0] < xlim[1] - datetime.timedelta(days=1) ) or \
+            (background_range[1] > xlim[0] + datetime.timedelta(days=1) and background_range[1] > xlim[1] + datetime.timedelta(days=1) ):
+            background_warning = "NOTICE that your background_range is separated from plot_range by over a day.\nIf this was intentional you may ignore this warning."
+            warnings.warn(message=background_warning)
+
         if (self.spacecraft[:2].lower() == 'st' and self.sensor == 'sept') \
                 or (self.spacecraft.lower() == 'psp' and self.sensor.startswith('isois')) \
                 or (self.spacecraft.lower() == 'solo' and self.sensor == 'ept') \
@@ -1048,61 +1065,75 @@ class Event:
 
         if(self.spacecraft[:2] == 'st'):
 
-            if(self.sensor == 'het'):
+            # Super ugly implementation, but easiest to just wrap both sept and het calculators
+            # in try block. KeyError is caused by an invalid channel choice.
+            try:
 
-                if(self.species in ['p', 'i']):
+                if(self.sensor == 'het'):
 
-                    df_flux, en_channel_string =\
-                        calc_av_en_flux_ST_HET(self.current_df_i,
-                                               self.current_energies['channels_dict_df_p'],
-                                               channels,
-                                               species='p')
-                elif(self.species == 'e'):
+                    if(self.species in ['p', 'i']):
 
-                    df_flux, en_channel_string =\
-                        calc_av_en_flux_ST_HET(self.current_df_e,
-                                               self.current_energies['channels_dict_df_e'],
-                                               channels,
-                                               species='e')
+                        df_flux, en_channel_string =\
+                            calc_av_en_flux_ST_HET(self.current_df_i,
+                                                self.current_energies['channels_dict_df_p'],
+                                                channels,
+                                                species='p')
+                    elif(self.species == 'e'):
 
-            elif(self.sensor == 'sept'):
+                        df_flux, en_channel_string =\
+                            calc_av_en_flux_ST_HET(self.current_df_e,
+                                                self.current_energies['channels_dict_df_e'],
+                                                channels,
+                                                species='e')
 
-                if(self.species in ['p', 'i']):
+                elif(self.sensor == 'sept'):
 
-                    df_flux, en_channel_string =\
-                        calc_av_en_flux_SEPT(self.current_df_i,
-                                             self.current_i_energies,
-                                             channels)
-                elif(self.species == 'e'):
+                    if(self.species in ['p', 'i']):
 
-                    df_flux, en_channel_string =\
-                        calc_av_en_flux_SEPT(self.current_df_e,
-                                             self.current_e_energies,
-                                             channels)
+                        df_flux, en_channel_string =\
+                            calc_av_en_flux_SEPT(self.current_df_i,
+                                                self.current_i_energies,
+                                                channels)
+                    elif(self.species == 'e'):
+
+                        df_flux, en_channel_string =\
+                            calc_av_en_flux_SEPT(self.current_df_e,
+                                                self.current_e_energies,
+                                                channels)
+            
+            except KeyError:
+                raise Exception(f"{channels} is an invalid channel or a combination of channels!")
+
 
         if(self.spacecraft == 'soho'):
 
-            if(self.sensor == 'erne'):
+            # A KeyError here is caused by invalid channel
+            try:
 
-                if(self.species in ['p', 'i']):
+                if(self.sensor == 'erne'):
 
-                    df_flux, en_channel_string =\
-                        calc_av_en_flux_ERNE(self.current_df_i,
-                                             self.current_energies['channels_dict_df_p'],
-                                             channels,
-                                             species='p',
-                                             sensor='HET')
+                    if(self.species in ['p', 'i']):
 
-            if(self.sensor == 'ephin'):
-                # convert single-element "channels" list to integer
-                if type(channels) == list:
-                    if len(channels) == 1:
-                        channels = channels[0]
-                    else:
-                        print("No multi-channel support for SOHO/EPHIN included yet! Select only one single channel.")
-                if(self.species == 'e'):
-                    df_flux = self.current_df_e[f'E{channels}']
-                    en_channel_string = self.current_energies[f'E{channels}']
+                        df_flux, en_channel_string =\
+                            calc_av_en_flux_ERNE(self.current_df_i,
+                                                self.current_energies['channels_dict_df_p'],
+                                                channels,
+                                                species='p',
+                                                sensor='HET')
+
+                if(self.sensor == 'ephin'):
+                    # convert single-element "channels" list to integer
+                    if type(channels) == list:
+                        if len(channels) == 1:
+                            channels = channels[0]
+                        else:
+                            print("No multi-channel support for SOHO/EPHIN included yet! Select only one single channel.")
+                    if(self.species == 'e'):
+                        df_flux = self.current_df_e[f'E{channels}']
+                        en_channel_string = self.current_energies[f'E{channels}']
+
+            except KeyError:
+                raise Exception(f"{channels} is an invalid channel or a combination of channels!")
 
         if(self.spacecraft == 'wind'):
             if(self.sensor == '3dp'):
@@ -1128,18 +1159,22 @@ class Event:
                     en_channel_string = self.current_e_energies['channels_dict_df']['Bins_Text'][f'ENERGY_{channels}']
 
         if(self.spacecraft.lower() == 'bepi'):
-            # convert single-element "channels" list to integer
             if type(channels) == list:
                 if len(channels) == 1:
+                    # convert single-element "channels" list to integer
                     channels = channels[0]
+                    if(self.species == 'e'):
+                        df_flux = self.current_df_e[f'E{channels}']
+                        en_channel_string = self.current_energies['Energy_Bin_str'][f'E{channels}']
+                    if(self.species in ['p', 'i']):
+                        df_flux = self.current_df_i[f'P{channels}']
+                        en_channel_string = self.current_energies['Energy_Bin_str'][f'P{channels}']
                 else:
-                    print("No multi-channel support for Bepi/SIXS included yet! Select only one single channel.")
-            if(self.species == 'e'):
-                df_flux = self.current_df_e[f'E{channels}']
-                en_channel_string = self.current_energies['Energy_Bin_str'][f'E{channels}']
-            if(self.species in ['p', 'i']):
-                df_flux = self.current_df_i[f'P{channels}']
-                en_channel_string = self.current_energies['Energy_Bin_str'][f'P{channels}']
+                    if(self.species == 'e'):
+                        df_flux, en_channel_string = calc_av_en_flux_sixs(self.current_df_e, channels, self.species)
+                    if(self.species in ['p', 'i']):
+                        df_flux, en_channel_string = calc_av_en_flux_sixs(self.current_df_i, channels, self.species)
+
 
         if(self.spacecraft.lower() == 'psp'):
             if(self.sensor.lower() == 'isois-epihi'):
@@ -1690,7 +1725,9 @@ class Event:
             if self.sensor.lower() == "erne":
                 energy_ranges = self.current_energies["channels_dict_df_p"]["ch_strings"].values
             if self.sensor.lower() == "ephin":
-                energy_ranges = [val for val in self.current_energies.values()]
+                # Choose only the 4 first channels / descriptions, since I only know of 
+                # E150, E300, E1300 and E3000. The rest are unknown to me. 
+                energy_ranges = [val for val in self.current_energies.values()][:4]
 
         # Check what to return before running calculations
         if returns == "str":
@@ -1703,6 +1740,8 @@ class Event:
             try:
                 lower_bound, temp = energy_str.split('-')
             except ValueError:
+                lower_bounds.append(np.nan)
+                higher_bounds.append(np.nan)
                 continue
 
             try:
@@ -1771,12 +1810,43 @@ class Event:
 
     
     def print_energies(self):
-    
+        """
+        Prints out the channel name / energy range pairs 
+        """
+
+        # This has to be run first, otherwise self.current_df does not exist
+        self.choose_data(self.viewing)
+
+        if self.species in ['e', "electron"]:
+            channel_names = self.current_df_e.columns
+            SOLO_EPT_CHANNELS_AMOUNT = 34
+            SOLO_HET_CHANNELS_AMOUNT = 4
+        if self.species in ['p', 'i', 'H', "proton", "ion"]:
+            channel_names = self.current_df_i.columns
+            SOLO_EPT_CHANNELS_AMOUNT = 64
+            SOLO_HET_CHANNELS_AMOUNT = 36
+
+        # Extract only the numbers from channel names
+        if self.spacecraft == "solo":
+            if self.sensor == "ept":
+                channel_names = [name[1] for name in channel_names[:SOLO_EPT_CHANNELS_AMOUNT]]
+                channel_numbers = [name.split('_')[-1] for name in channel_names]
+            if self.sensor == "het":
+                channel_names = [name[1] for name in channel_names[:SOLO_HET_CHANNELS_AMOUNT]]
+                channel_numbers = [name.split('_')[-1] for name in channel_names]
+
+        if self.spacecraft in ["sta", "stb"] or self.sensor == "erne":
+            channel_numbers = [name.split('_')[-1] for name in channel_names]
+
+        if self.sensor == "ephin":
+            channel_numbers = [name.split('E')[-1] for name in channel_names]
+
         energy_strs = self.get_channel_energy_values("str")
         
         print(f"{self.spacecraft}, {self.sensor}:\n")
-        for line in energy_strs:
-            print(line)
+        print("Channel number | Energy range")
+        for i, energy_range in enumerate(energy_strs):
+            print(f" {channel_numbers[i]}  :  {energy_range}")
 
 
 def flux2series(flux, dates, cadence=None):
@@ -1862,3 +1932,56 @@ def bepi_sixs_load(startdate, enddate, side, path):
                      "Ion_Bins_Low_Energy": np.array([0.001, 1.088, 1.407, 2.139, 3.647, 7.533, 13.211, 22.606, 29.246]),
                      "Ion_Bins_High_Energy": np.array([1.254, 1.311, 1.608, 2.388, 4.241, 8.534, 15.515, 28.413, 40.0])}
     return df, channels_dict
+
+
+def calc_av_en_flux_sixs(df, channel, species):
+    """
+    This function averages the flux of two energy channels of BepiColombo/SIXS into a combined energy channel
+    channel numbers counted from 1
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing HET data
+    channel : int or list
+        energy channel or list with first and last channel to be used
+    species : string
+        'e', 'electrons', 'p', 'protons'
+
+    Returns
+    -------
+    flux: pd.DataFrame
+        channel-averaged flux
+    en_channel_string: str
+        string containing the energy information of combined channel
+    """
+
+    # define constant geometric factors
+    GEOMFACTOR_PROT8 = 5.97E-01
+    GEOMFACTOR_PROT9 = 4.09E+00
+    GEOMFACTOR_ELEC5 = 1.99E-02
+    GEOMFACTOR_ELEC6 = 1.33E-01
+    GEOMFACTOR_PROT_COMB89 = 3.34
+    GEOMFACTOR_ELEC_COMB56 = 0.0972
+
+    if species in ['p', 'protons']:
+        if channel == [8, 9]:
+            countrate = df['P8'] * GEOMFACTOR_PROT8 + df['P9'] * GEOMFACTOR_PROT9
+            flux = countrate / GEOMFACTOR_PROT_COMB89
+            en_channel_string = '37 MeV'
+        else:
+            print('No valid channel combination selected.')
+            flux = pd.Series()
+            en_channel_string = ''
+
+    if species in ['e', 'electrons']:
+        if channel == [5, 6]:
+            countrate = df['E5'] * GEOMFACTOR_ELEC5 + df['E6'] * GEOMFACTOR_ELEC6
+            flux = countrate / GEOMFACTOR_ELEC_COMB56
+            en_channel_string = '1.4 MeV'
+        else:
+            print('No valid channel combination selected.')
+            flux = pd.Series()
+            en_channel_string = ''
+
+    return flux, en_channel_string
