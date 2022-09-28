@@ -28,7 +28,7 @@ def get_swaves(start_time, end_time, path=None):
         start = datetime.datetime.strptime( start_time, '%Y-%m-%d %H:%M')
         end = datetime.datetime.strptime( end_time, '%Y-%m-%d %H:%M')
     else:
-        start, end = start_time, end_time+datetime.timedelta(minutes=1)
+        start, end = start_time, end_time+datetime.timedelta(days=1)
 
     dataset = 'STEREO_LEVEL2_SWAVES'
     cda_dataset = a.cdaweb.Dataset(dataset)
@@ -38,7 +38,7 @@ def get_swaves(start_time, end_time, path=None):
     result = Fido.search(trange, cda_dataset)
     downloaded_files = Fido.fetch(result, path=path)  # use Fido.fetch(result, path='/ThisIs/MyPath/to/Data/{file}')  to use a specific local folder for saving data files
     downloaded_files.sort()
-    print(downloaded_files)
+    # print(downloaded_files)
     
     return downloaded_files
 
@@ -55,7 +55,7 @@ def plot_swaves(downloaded_files, spacecraft, start_time, end_time, ax):
 
     for i in downloaded_files:
         cdf_file = cdflib.CDF(i)
-        print(i)
+        # print(i)
         #cdf_file.cdf_info()
 
         data = cdf_file.varget("avg_intens_" + spacecraft)
