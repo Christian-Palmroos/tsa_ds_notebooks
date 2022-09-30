@@ -1423,7 +1423,7 @@ class Event:
             DYN_SPEC_INDX = 1
 
             from read_swaves import plot_swaves
-            ax[0], colormesh = plot_swaves(downloaded_files=self.radio_files, spacecraft=self.radio_spacecraft[0], start_time=t_start, end_time=t_end, ax=ax[0])
+            ax[0], colormesh = plot_swaves(downloaded_files=self.radio_files, spacecraft=self.radio_spacecraft[0], start_time=t_start, end_time=t_end, ax=ax[0], cmap=cmap)
 
             fig.tight_layout(pad=9.5, w_pad=-0.5, h_pad=-0.5)
             # plt.subplots_adjust(wspace=-1, hspace=-1.8)
