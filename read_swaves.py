@@ -1,8 +1,8 @@
 from sunpy.net import Fido
 from sunpy.net import attrs as a
-from sunpy.timeseries import TimeSeries
+# from sunpy.timeseries import TimeSeries
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from matplotlib import dates
 import numpy as np
 import datetime
@@ -11,10 +11,10 @@ import cdflib
 
 
 # define start and end date
-start_time="2012-5-26 10:30"
-end_time="2012-5-28 15:40"
+# start_time="2012-5-26 10:30"
+# end_time="2012-5-28 15:40"
 # specify spacecraft 'ahead'/'behind'
-spacecraft = 'ahead'
+# spacecraft = 'ahead'
 
 
 
@@ -96,7 +96,7 @@ def plot_swaves(downloaded_files, spacecraft, start_time, end_time, ax):
     colormesh = ax.pcolormesh( time_arr, freq[::-1], data_arr[::-1], vmin = 0, vmax = 0.5*np.max(data_arr), cmap = 'inferno' )
 
     ax.set_ylabel( 'Frequency (MHz)' )
-    ax.set_xlabel( 'Date and time (UT)' )
+    # ax.set_xlabel( 'Date and time (UT)' )
     ax.set_yscale( 'log' )
     ax.set_ylim( freq[-1], freq[0] )
     ax.set_yticks( [0.01, 0.1, 1, 10] )
@@ -104,7 +104,7 @@ def plot_swaves(downloaded_files, spacecraft, start_time, end_time, ax):
     ax.set_xlim( start, end )
 
     ax.xaxis_date()
-    ax.xaxis.set_major_formatter(dates.DateFormatter('%d/%m %H:%M'))
+    # ax.xaxis.set_major_formatter(dates.DateFormatter('%d/%m %H:%M'))
     # plt.show()
 
     return ax, colormesh
