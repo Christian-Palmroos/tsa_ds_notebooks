@@ -6,78 +6,78 @@ A library to run the interactive user interface in SEP event onset determination
 """
 
 
-from importlib.resources import path
+# from importlib.resources import path
 import ipywidgets as widgets
 
 # a list of available spacecraft:
 # list_of_sc = ["STEREO-A", "STEREO-B", "Solar Orbiter", "Bepicolombo", "SOHO"]
 list_of_sc = ["STEREO-A", "STEREO-B", "Solar Orbiter", "SOHO"]
 
-stereo_instr = ["SEPT", "HET"] #["LET", "SEPT", "HET"]
+stereo_instr = ["SEPT", "HET"]  # ["LET", "SEPT", "HET"]
 solo_instr = ["EPT", "HET"]
 bepi_instr = ["SIXS-P"]
 soho_instr = ["ERNE-HED", "EPHIN"]
 
 sensor_dict = {
-    "STEREO-A" : stereo_instr,
-    "STEREO-B" : stereo_instr,
-    "Solar Orbiter" : solo_instr,
-    "Bepicolombo" : bepi_instr,
-    "SOHO" : soho_instr
+    "STEREO-A": stereo_instr,
+    "STEREO-B": stereo_instr,
+    "Solar Orbiter": solo_instr,
+    "Bepicolombo": bepi_instr,
+    "SOHO": soho_instr
 }
 
 view_dict = {
-    ("STEREO-A", "SEPT") : ["sun", "asun", "north", "south"],
-    ("STEREO-B", "SEPT") : ["sun", "asun", "north", "south"],
-    ("Solar Orbiter", "EPT") : ["sun", "asun", "north", "south"],
-    ("Solar Orbiter", "HET") : ["sun", "asun", "north", "south"],
-    ("Bepicolombo", "SIXS-P") : [0, 1, 2, 3, 4]
+    ("STEREO-A", "SEPT"): ["sun", "asun", "north", "south"],
+    ("STEREO-B", "SEPT"): ["sun", "asun", "north", "south"],
+    ("Solar Orbiter", "EPT"): ["sun", "asun", "north", "south"],
+    ("Solar Orbiter", "HET"): ["sun", "asun", "north", "south"],
+    ("Bepicolombo", "SIXS-P"): [0, 1, 2, 3, 4]
 }
 
 species_dict = {
-    ("STEREO-A", "LET") : ['protons', 'electrons'],
-    ("STEREO-A", "SEPT") : ['ions', 'electrons'],
-    ("STEREO-A", "HET") : ['protons', 'electrons'],
-    ("STEREO-B", "LET") : ['protons', 'electrons'],
-    ("STEREO-B", "SEPT") : ['ions', 'electrons'],
-    ("STEREO-B", "HET") : ['protons', 'electrons'],
-    ("Solar Orbiter", "EPT") : ['ions', 'electrons'],
-    ("Solar Orbiter", "HET") : ['protons', 'electrons'],
-    ("Bepicolombo", "SIXS-P") : ['protons', 'electrons'],
-    ("SOHO", "ERNE-HED") : ['protons'],
-    ("SOHO", "EPHIN") : ['electrons']
+    ("STEREO-A", "LET"): ['protons', 'electrons'],
+    ("STEREO-A", "SEPT"): ['ions', 'electrons'],
+    ("STEREO-A", "HET"): ['protons', 'electrons'],
+    ("STEREO-B", "LET"): ['protons', 'electrons'],
+    ("STEREO-B", "SEPT"): ['ions', 'electrons'],
+    ("STEREO-B", "HET"): ['protons', 'electrons'],
+    ("Solar Orbiter", "EPT"): ['ions', 'electrons'],
+    ("Solar Orbiter", "HET"): ['protons', 'electrons'],
+    ("Bepicolombo", "SIXS-P"): ['protons', 'electrons'],
+    ("SOHO", "ERNE-HED"): ['protons'],
+    ("SOHO", "EPHIN"): ['electrons']
 }
 
 radio_dict = {
-    "None" : None,
-    "STEREO-A" : ("ahead", "STEREO-A"),
-    "STEREO-B" : ("behind", "STEREO-B"),
-    "WIND (Coming soon!)" : ("wind", "WIND")
+    "None": None,
+    "STEREO-A": ("ahead", "STEREO-A"),
+    "STEREO-B": ("behind", "STEREO-B"),
+    "WIND (Coming soon!)": ("wind", "WIND")
 }
 
 # Drop-downs for dynamic particle spectrum:
 spacecraft_drop = widgets.Dropdown(
-                                options = list_of_sc,
-                                description = "Spacecraft:",
-                                disabled = False,
+                                options=list_of_sc,
+                                description="Spacecraft:",
+                                disabled=False,
                                 )
 
 sensor_drop = widgets.Dropdown(
-                                options = sensor_dict[spacecraft_drop.value],
-                                description = "Sensor:",
-                                disabled = False,
+                                options=sensor_dict[spacecraft_drop.value],
+                                description="Sensor:",
+                                disabled=False,
                                 )
 
 view_drop = widgets.Dropdown(
-                                options = view_dict[(spacecraft_drop.value, sensor_drop.value)],
-                                description = "Viewing:",
-                                disabled = False
+                                options=view_dict[(spacecraft_drop.value, sensor_drop.value)],
+                                description="Viewing:",
+                                disabled=False
                                 )
 
 species_drop = widgets.Dropdown(
-                                options = species_dict[(spacecraft_drop.value, sensor_drop.value)],
-                                description = "Species:",
-                                disabled = False,
+                                options=species_dict[(spacecraft_drop.value, sensor_drop.value)],
+                                description="Species:",
+                                disabled=False,
                                 )
 
 
@@ -92,20 +92,25 @@ radio_button = widgets.Checkbox(
 # The drop-drown for radio options
 radio_drop_style = {'description_width': 'initial'}
 radio_drop = widgets.Dropdown(
-                                options = radio_dict,
-                                value = None,
-                                description = "Plot radio spectrum for:",
-                                disabled = False,
+                                options=radio_dict,
+                                value=None,
+                                description="Plot radio spectrum for:",
+                                disabled=False,
                                 style=radio_drop_style
                               )
 
-# this function updates the options in sensor_drop menu
+
 def update_sensor_options(val):
+    """
+    this function updates the options in sensor_drop menu
+    """
     sensor_drop.options = sensor_dict[spacecraft_drop.value]
 
 
-# updates the options and availability of view_drop menu
 def update_view_options(val):
+    """
+    updates the options and availability of view_drop menu
+    """
     try:
         view_drop.disabled = False
         view_drop.options = view_dict[(spacecraft_drop.value, sensor_drop.value)]
@@ -130,7 +135,7 @@ def update_radio_options(val):
         radio_drop.value = radio_drop.options[0]
 
 
-def confirm_input(event_date : int, data_path : str, plot_path : str):
+def confirm_input(event_date: int, data_path: str, plot_path: str):
 
     print("You've chosen the following options:")
     print(f"Spacecraft: {spacecraft_drop.value}")
@@ -149,12 +154,12 @@ def confirm_input(event_date : int, data_path : str, plot_path : str):
         spacecraft_drop_value = "stb"
     else:
         spacecraft_drop_value = spacecraft_drop.value
-    
+
     if sensor_drop.value in ["ERNE-HED"]:
         sensor_drop_value = "ERNE"
     else:
         sensor_drop_value = sensor_drop.value
-    
+
     if species_drop.value == "protons":
         species_drop_value = 'p'
     else:
@@ -164,14 +169,15 @@ def confirm_input(event_date : int, data_path : str, plot_path : str):
     global input_dict
 
     input_dict = {
-        "Spacecraft" : spacecraft_drop_value,
-        "Sensor" : sensor_drop_value,
-        "Species" : species_drop_value,
-        "Viewing" : view_drop.value,
-        "Event_date" : event_date,
-        "Data_path" : data_path,
-        "Plot_path" : plot_path
+        "Spacecraft": spacecraft_drop_value,
+        "Sensor": sensor_drop_value,
+        "Species": species_drop_value,
+        "Viewing": view_drop.value,
+        "Event_date": event_date,
+        "Data_path": data_path,
+        "Plot_path": plot_path
     }
+
 
 # makes spacecraft_drop run these functions every time it is accessed by user
 spacecraft_drop.observe(update_sensor_options)
